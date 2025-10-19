@@ -1,20 +1,24 @@
+// lib/mongodb.ts
 import mongoose from "mongoose";
 
-declare global {
- 
-  var _mongoClientPromise: Promise<typeof mongoose> | undefined;
-}
+const MONGODB_URI = process.env.MONGODB_URI as string;
 
-const MONGODB_URI = process.env.MONGODB_URI!;
-if (!MONGODB_URI) throw new Error("Please define MONGODB_URI in env");
+if (!MONGODB_URI) throw new Error("MONGODB_URI missing in .env.local");
 
-async function connect() {
-  if (mongoose.connection.readyState === 1) {
+let isConnected = false;
+
+export default async function connectDB() {
+  if (isConnected || mongoose.connection.readyState === 1) {
     return mongoose;
   }
-  return mongoose.connect(MONGODB_URI, {
-    
-  });
-}
 
-export default connect;
+  try {
+    await mongoose.connect(MONGODB_URI);
+    isConnected = true;
+    console.log("✅ MongoDB Connected");
+    return mongoose;
+  } catch (error) {
+    console.error("❌ MongoDB connection failed", error);
+    throw error;
+  }
+}
