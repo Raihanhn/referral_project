@@ -2,10 +2,12 @@
 
 import { useState } from "react";
 import { signIn } from "next-auth/react";
+import { useRouter } from "next/navigation";
 
 export default function LoginPage() {
   const [form, setForm] = useState({ email: "", password: "" });
   const [loading, setLoading] = useState(false);
+  const router = useRouter();
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -13,14 +15,21 @@ export default function LoginPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+
     const res = await signIn("credentials", {
       redirect: false,
       email: form.email,
       password: form.password,
     });
+
     setLoading(false);
-    if (res?.error) alert(res.error);
-    else alert("Login successful!");
+
+    if (res?.error) {
+      alert(res.error);
+    } else {
+      alert("Login successful!");
+      router.push("/dashboard"); // ✅ redirect to dashboard
+    }
   };
 
   return (
@@ -60,7 +69,11 @@ export default function LoginPage() {
 
         <div className="mt-6 text-center">
           <button
-            onClick={() => signIn("google")}
+            onClick={() =>
+              signIn("google", {
+                callbackUrl: "/dashboard", // ✅ redirect after Google login
+              })
+            }
             className="flex items-center justify-center w-full gap-2 bg-red-500 text-white py-2 rounded-lg hover:bg-red-600 transition-all"
           >
             <svg

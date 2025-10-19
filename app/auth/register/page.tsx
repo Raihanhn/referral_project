@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { signIn } from "next-auth/react";
+import { useRouter } from "next/navigation";
 
 export default function RegisterPage() {
   const [form, setForm] = useState({
@@ -9,6 +10,8 @@ export default function RegisterPage() {
     email: "",
     password: "",
   });
+  const [loading, setLoading] = useState(false);
+  const router = useRouter();
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -16,17 +19,40 @@ export default function RegisterPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setLoading(true);
     try {
       const res = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(form),
       });
+
       const data = await res.json();
-      alert(data.message || "Account created!");
+
+      if (!res.ok) {
+        alert(data.message || "Registration failed");
+        setLoading(false);
+        return;
+      }
+
+      // Auto login user after registration
+      const loginRes = await signIn("credentials", {
+        redirect: false,
+        email: form.email,
+        password: form.password,
+      });
+
+      if (loginRes?.ok) {
+        router.push("/dashboard");
+      } else {
+        alert("Account created, please login manually.");
+        router.push("/auth/login");
+      }
     } catch (error) {
       console.error(error);
       alert("Registration failed");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -67,15 +93,20 @@ export default function RegisterPage() {
           />
           <button
             type="submit"
-            className="bg-blue-500 text-white rounded-lg py-2 hover:bg-blue-600 transition-all duration-300"
+            disabled={loading}
+            className="bg-blue-500 text-white rounded-lg py-2 hover:bg-blue-600 transition-all duration-300 disabled:opacity-60"
           >
-            Create Account
+            {loading ? "Creating..." : "Create Account"}
           </button>
         </form>
 
         <div className="mt-6 text-center">
           <button
-            onClick={() => signIn("google")}
+            onClick={() =>
+              signIn("google", {
+                callbackUrl: "/dashboard",
+              })
+            }
             className="flex items-center justify-center w-full gap-2 bg-red-500 text-white py-2 rounded-lg hover:bg-red-600 transition-all"
           >
             <svg

@@ -3,29 +3,41 @@ import connect from "@/lib/mongodb";
 import User from "@/models/User";
 import Referral from "@/models/Referral";
 import Purchase from "@/models/Purchase";
-import { NextResponse } from "next/server"; 
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/authOptions";
+import { NextResponse } from "next/server";
 
 export async function POST(req: Request) {
-  const { userId, amount } = await req.json();
-  if (!userId) return NextResponse.json({ error: "Missing userId" }, { status: 400 });
-
   await connect();
 
-  const user = await User.findById(userId);
+  // Get the user from the session
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const user = await User.findById(session.user.id);
   if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
-  const existing = await Purchase.findOne({ userId });
+  const { amount } = await req.json();
+  if (!amount || typeof amount !== "number") {
+    return NextResponse.json({ error: "Missing or invalid amount" }, { status: 400 });
+  }
+
+  // Check if it's the first purchase
+  const existing = await Purchase.findOne({ userId: user._id });
   const isFirstPurchase = !existing;
 
+  // Create purchase record
   const purchase = await Purchase.create({
-    userId,
+    userId: user._id,
     amount,
-    isFirstPurchase
+    isFirstPurchase,
   });
 
+  // If first purchase, update referral credits
   if (isFirstPurchase) {
-    // find referral record
-    const referral = await Referral.findOne({ referredId: userId, credited: false });
+    const referral = await Referral.findOne({ referredId: user._id, credited: false });
     if (referral) {
       const referrer = await User.findById(referral.referrerId);
       if (referrer) {
@@ -34,6 +46,7 @@ export async function POST(req: Request) {
       }
       user.credits = (user.credits || 0) + 2;
       await user.save();
+
       referral.credited = true;
       await referral.save();
     }

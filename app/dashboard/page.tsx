@@ -7,10 +7,20 @@ import useStore from "@/store/UseStore";
 import { motion } from "framer-motion";
 import axios from "axios";
 
+interface ReferralUser {
+  id: string;
+  name: string;
+  purchased: boolean;
+}
+
 export default function Dashboard() {
   const router = useRouter();
   const { user, setUser, updateCredits } = useStore();
-  const [stats, setStats] = useState({ referred: 0, bought: 0 });
+  const [stats, setStats] = useState({
+    referred: 0,
+    bought: 0,
+    referralUsers: [] as ReferralUser[],
+  });
 
   // Fetch user dashboard data
   useEffect(() => {
@@ -21,6 +31,7 @@ export default function Dashboard() {
         setStats({
           referred: res.data.referredCount,
           bought: res.data.purchasedCount,
+          referralUsers: res.data.referralUsers || [],
         });
       } catch (err) {
         console.error(err);
@@ -33,7 +44,7 @@ export default function Dashboard() {
   const handlePurchase = async () => {
     if (!user) return;
     try {
-      const res = await axios.post("/api/purchase", { userId: user._id, amount: 10 });
+      const res = await axios.post("/api/purchase", { amount: 10 });
       if (res.data.ok) {
         updateCredits(2); // update local state for first purchase
         setStats((prev) => ({ ...prev, bought: prev.bought + 1 }));
@@ -82,7 +93,11 @@ export default function Dashboard() {
             />
             <button
               className="px-4 py-2 bg-blue-500 text-white rounded"
-              onClick={() => navigator.clipboard.writeText(`${window.location.origin}/auth/register?r=${user.referralCode}`)}
+              onClick={() =>
+                navigator.clipboard.writeText(
+                  `${window.location.origin}/auth/register?r=${user.referralCode}`
+                )
+              }
             >
               Copy
             </button>
@@ -95,6 +110,32 @@ export default function Dashboard() {
         >
           Simulate Purchase
         </button>
+
+        {/* ✅ Referral Users Section */}
+        <section className="mt-10 p-6 bg-white rounded-lg shadow">
+          <h3 className="text-lg font-semibold mb-4 text-center">
+            Referral Users
+          </h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+            {stats.referralUsers && stats.referralUsers.length > 0 ? (
+              stats.referralUsers.map((ref) => (
+                <div
+                  key={ref.id}
+                  className="p-4 bg-gray-100 rounded flex flex-col items-center"
+                >
+                  <div className="text-lg font-bold">{ref.name}</div>
+                  <div className="mt-1 text-sm text-gray-500">
+                    {ref.purchased ? "Purchased ✅" : "No Purchase"}
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="col-span-full text-center text-gray-400">
+                No referral users yet
+              </div>
+            )}
+          </div>
+        </section>
       </section>
     </main>
   );

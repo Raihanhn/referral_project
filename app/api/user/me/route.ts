@@ -1,22 +1,38 @@
+// app/api/user/me/route.ts
 import connect from "@/lib/mongodb";
 import User from "@/models/User";
 import Referral from "@/models/Referral";
 import Purchase from "@/models/Purchase";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/authOptions";
 import { NextResponse } from "next/server";
 
 export async function GET(req: Request) {
   await connect();
 
-  // For demo: get userId from query or session (replace with real session later)
-  const url = new URL(req.url);
-  const userId = url.searchParams.get("userId");
-  if (!userId) return NextResponse.json({ error: "Missing userId" }, { status: 400 });
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
 
-  const user = await User.findById(userId);
+  const user = await User.findById(session.user.id);
   if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
+  // Count of users referred by this user
   const referredCount = await Referral.countDocuments({ referrerId: user._id });
-  const purchasedReferrals = await Referral.countDocuments({ referrerId: user._id, credited: true });
 
-  return NextResponse.json({ user, referredCount, purchasedCount: purchasedReferrals });
+  // Count of referred users who made first purchase
+  const purchasedCount = await Referral.countDocuments({ referrerId: user._id, credited: true });
+
+  // Fetch all referred users for dashboard
+  const referrals = await Referral.find({ referrerId: user._id }).populate("referredId", "name email");
+
+  // Map for dashboard display
+  const referralUsers = referrals.map((r) => ({
+    id: (r.referredId as any)._id.toString(), 
+    name: (r.referredId as any).name,
+    purchased: r.credited,
+  }));
+
+  return NextResponse.json({ user, referredCount, purchasedCount, referralUsers });
 }
