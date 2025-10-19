@@ -54,11 +54,11 @@ export default function Dashboard() {
         if (res.data.purchase.isFirstPurchase) {
           updateCredits(2);
         }
-        setStats((prev) => ({
-          ...prev,
-          bought: prev.bought + 1,
-        }));
-        fetchDashboard(); // refresh stats from server
+        // setStats((prev) => ({
+        //   ...prev,
+        //   bought: prev.bought + 1,
+        // }));
+        await fetchDashboard(); // refresh stats from server
         alert("Purchase simulated!");
       }
     } catch (err) {
