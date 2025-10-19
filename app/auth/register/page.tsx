@@ -21,10 +21,14 @@ export default function RegisterPage() {
     e.preventDefault();
     setLoading(true);
     try {
+
+      const params = new URLSearchParams(window.location.search);
+      const referralCode = params.get("r");
+
       const res = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify({ ...form, ref: referralCode }),
       });
 
       const data = await res.json();

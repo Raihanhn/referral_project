@@ -23,32 +23,43 @@ export default function Dashboard() {
   });
 
   // Fetch user dashboard data
+  const fetchDashboard = async () => {
+    try {
+      const res = await axios.get("/api/user/me");
+      setUser(res.data.user);
+      setStats({
+        referred: res.data.referredCount,
+        bought: res.data.purchasedCount,
+        referralUsers: res.data.referralUsers || [],
+      });
+    } catch (err) {
+      console.error(err);
+      router.push("/auth/login"); // redirect if not logged in
+    }
+  };
+
+  // ✅ useEffect fix: stable dependency
   useEffect(() => {
-    const fetchUser = async () => {
-      try {
-        const res = await axios.get("/api/user/me");
-        setUser(res.data.user);
-        setStats({
-          referred: res.data.referredCount,
-          bought: res.data.purchasedCount,
-          referralUsers: res.data.referralUsers || [],
-        });
-      } catch (err) {
-        console.error(err);
-        router.push("/auth/login"); // redirect if not logged in
-      }
-    };
-    fetchUser();
-  }, []);
+    fetchDashboard();
+    const interval = setInterval(fetchDashboard, 10000); // refresh every 10 sec
+    return () => clearInterval(interval);
+  }, []); // run once on mount
 
   const handlePurchase = async () => {
     if (!user) return;
     try {
       const res = await axios.post("/api/purchase", { amount: 10 });
       if (res.data.ok) {
-        updateCredits(2); // update local state for first purchase
-        setStats((prev) => ({ ...prev, bought: prev.bought + 1 }));
-        alert("Purchase simulated! Credits updated.");
+        // Only update local credits if first purchase was credited
+        if (res.data.purchase.isFirstPurchase) {
+          updateCredits(2);
+        }
+        setStats((prev) => ({
+          ...prev,
+          bought: prev.bought + 1,
+        }));
+        fetchDashboard(); // refresh stats from server
+        alert("Purchase simulated!");
       }
     } catch (err) {
       console.error(err);

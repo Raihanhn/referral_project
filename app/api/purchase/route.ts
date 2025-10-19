@@ -1,4 +1,3 @@
-// app/api/purchase/route.ts
 import connect from "@/lib/mongodb";
 import User from "@/models/User";
 import Referral from "@/models/Referral";
@@ -25,8 +24,8 @@ export async function POST(req: Request) {
   }
 
   // Check if it's the first purchase
-  const existing = await Purchase.findOne({ userId: user._id });
-  const isFirstPurchase = !existing;
+  const existingPurchase = await Purchase.findOne({ userId: user._id });
+  const isFirstPurchase = !existingPurchase;
 
   // Create purchase record
   const purchase = await Purchase.create({
@@ -35,8 +34,12 @@ export async function POST(req: Request) {
     isFirstPurchase,
   });
 
-  // If first purchase, update referral credits
   if (isFirstPurchase) {
+    // ✅ Add credits to buyer
+    user.credits = (user.credits || 0) + 2;
+    await user.save();
+
+    // ✅ Add credits to referrer if exists
     const referral = await Referral.findOne({ referredId: user._id, credited: false });
     if (referral) {
       const referrer = await User.findById(referral.referrerId);
@@ -44,10 +47,7 @@ export async function POST(req: Request) {
         referrer.credits = (referrer.credits || 0) + 2;
         await referrer.save();
       }
-      user.credits = (user.credits || 0) + 2;
-      await user.save();
-
-      referral.credited = true;
+      referral.credited = true; // mark referral as credited
       await referral.save();
     }
   }
