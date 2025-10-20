@@ -1,5 +1,4 @@
 "use client";
-
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import useStore from "@/store/UseStore";
@@ -25,8 +24,8 @@ export default function Dashboard() {
     bought: 0,
     referralUsers: [],
   });
+  const [copied, setCopied] = useState(false); 
 
-  // Fetch dashboard data
   const fetchDashboard = async () => {
     try {
       const userId = localStorage.getItem("userId");
@@ -46,14 +45,14 @@ export default function Dashboard() {
       });
     } catch (err) {
       console.error(err);
-      localStorage.removeItem("userId"); // clear invalid user
+      localStorage.removeItem("userId");
       router.push("/auth/login");
     }
   };
 
   useEffect(() => {
     fetchDashboard();
-    const interval = setInterval(fetchDashboard, 10000); // refresh every 10s
+    const interval = setInterval(fetchDashboard, 10000);
     return () => clearInterval(interval);
   }, []);
 
@@ -64,20 +63,18 @@ export default function Dashboard() {
         { amount: 10 },
         {
           headers: {
-            "x-user-id": user._id, // send ID as header
+            "x-user-id": user._id,
           },
         }
       );
 
-      // ✅ Optimistically update bought count immediately
       setStats((prev) => ({
         ...prev,
         bought: prev.bought + 1,
       }));
 
-      // ✅ Update credits if first purchase bonus applied
       if (res.data.purchase?.isFirstPurchase) {
-        updateCredits(2); // add credits to store immediately
+        updateCredits(2);
       }
 
       alert(res.data.message);
@@ -92,11 +89,23 @@ export default function Dashboard() {
     router.push("/auth/login");
   };
 
+  const handleCopy = async () => {
+    if (!user) return;
+    try {
+      await navigator.clipboard.writeText(
+        `${window.location.origin}/auth/register?r=${user.referralCode}`
+      );
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1000); 
+    } catch (err) {
+      console.error("Copy failed", err);
+    }
+  };
+
   if (!user) return <div className="text-center mt-10">Loading...</div>;
 
   return (
     <main className="min-h-screen bg-gray-50">
-      {/* Header */}
       <header className="flex justify-between items-center p-6 bg-white shadow">
         <h1 className="text-xl font-bold">Dashboard</h1>
         <div className="flex items-center gap-4">
@@ -105,14 +114,13 @@ export default function Dashboard() {
           </div>
           <button
             onClick={handleLogout}
-            className="px-4 py-2 bg-red-500 text-white rounded"
+            className="px-4 py-2 bg-red-500 text-white rounded cursor-pointer"
           >
             Logout
           </button>
         </div>
       </header>
 
-      {/* Stats & Referral */}
       <section className="max-w-4xl mx-auto mt-10 p-6 bg-white rounded-lg shadow">
         <h2 className="text-lg font-semibold mb-4">Welcome, {user.name}</h2>
 
@@ -122,8 +130,7 @@ export default function Dashboard() {
           <StatCard label="Credits" value={user.credits || 0} />
         </div>
 
-        {/* Referral Link */}
-        <div className="mb-6">
+        <div className="mb-6 relative">
           <h4 className="text-sm text-gray-600 mb-2">Your referral link</h4>
           <div className="flex gap-2">
             <input
@@ -132,27 +139,26 @@ export default function Dashboard() {
               className="flex-1 p-3 border rounded bg-gray-50"
             />
             <button
-              className="px-4 py-2 bg-blue-500 text-white rounded"
-              onClick={() =>
-                navigator.clipboard.writeText(
-                  `${window.location.origin}/auth/register?r=${user.referralCode}`
-                )
-              }
+              className="px-4 py-2 bg-blue-500 text-white rounded relative cursor-pointer"
+              onClick={handleCopy}
             >
               Copy
+              {copied && (
+                <span className="absolute -top-6 right-0 bg-black text-white text-xs px-2 py-1 rounded opacity-90">
+                  Copied!
+                </span>
+              )}
             </button>
           </div>
         </div>
 
-        {/* Purchase button */}
         <button
           onClick={handlePurchase}
-          className="px-6 py-3 bg-orange-500 text-white rounded"
+          className="px-6 py-3 bg-orange-500 text-white rounded cursor-pointer"
         >
           Simulate Purchase
         </button>
 
-        {/* Referral Users */}
         <section className="mt-10 p-6 bg-white rounded-lg shadow">
           <h3 className="text-lg font-semibold mb-4 text-center">
             Referral Users

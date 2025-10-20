@@ -20,11 +20,11 @@ export default function RegisterPage() {
     setError(null);
 
     try {
-      // Get referral code from URL params
+      
       const params = new URLSearchParams(window.location.search);
       const referralCode = params.get("r");
 
-      // Call API
+      
       const res = await axios.post("/api/auth/register", {
         ...form,
         ref: referralCode,
@@ -36,7 +36,7 @@ export default function RegisterPage() {
         return;
       }
 
-      // Save userId locally
+     
       if (res.data.user && res.data.user._id) {
         localStorage.setItem("userId", res.data.user._id);
       } else {

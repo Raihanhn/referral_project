@@ -17,7 +17,6 @@ export async function POST(req: Request) {
       );
     }
 
-    // Check if user already exists
     const existingUser = await User.findOne({ email });
     if (existingUser) {
       return NextResponse.json(
@@ -26,24 +25,20 @@ export async function POST(req: Request) {
       );
     }
 
-    // Hash password
     const passwordHash = await bcrypt.hash(password, 10);
 
-    // Generate referral code
     const referralCode =
       name.substring(0, 4).toUpperCase() +
       Math.floor(1000 + Math.random() * 9000);
 
-    // Find the referrer user by referral code
 let referrerId = null;
 if (ref) {
   const refUser = await User.findOne({ referralCode: ref });
   if (refUser) {
-    referrerId = refUser._id; // ✅ MongoDB ObjectId
+    referrerId = refUser._id; 
   }
 }
 
-// Create new user
 const newUser = await User.create({
   name,
   email,
@@ -54,7 +49,6 @@ const newUser = await User.create({
 });
 
 
-    // Handle referral if present
     if (ref) {
       try {
         const referrer = await User.findOne({ referralCode: ref });
@@ -62,7 +56,7 @@ const newUser = await User.create({
           await Referral.create({
             referrerId: referrer._id,
             referredId: newUser._id,
-            credited: false, // ✅ matches your schema
+            credited: false, 
           });
         }
       } catch (err: unknown) {

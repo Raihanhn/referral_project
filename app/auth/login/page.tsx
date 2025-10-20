@@ -28,10 +28,10 @@ export default function LoginPage() {
         return;
       }
 
-      // Save userId in localStorage
+   
       if (res.data.user && res.data.user._id) {
         localStorage.setItem("userId", res.data.user._id);
-        localStorage.setItem("userName", res.data.user.name); // optional
+        localStorage.setItem("userName", res.data.user.name); 
       }
 
       router.push("/dashboard");
