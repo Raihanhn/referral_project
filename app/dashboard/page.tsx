@@ -2,83 +2,109 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { signOut } from "next-auth/react";
 import useStore from "@/store/UseStore";
-import { motion } from "framer-motion";
 import axios from "axios";
 
 interface ReferralUser {
-  id: string;
+  _id: string;
   name: string;
   purchased: boolean;
+}
+
+interface Stats {
+  referred: number;
+  bought: number;
+  referralUsers: ReferralUser[];
 }
 
 export default function Dashboard() {
   const router = useRouter();
   const { user, setUser, updateCredits } = useStore();
-  const [stats, setStats] = useState({
+  const [stats, setStats] = useState<Stats>({
     referred: 0,
     bought: 0,
-    referralUsers: [] as ReferralUser[],
+    referralUsers: [],
   });
 
-  // Fetch user dashboard data
+  // Fetch dashboard data
   const fetchDashboard = async () => {
     try {
-      const res = await axios.get("/api/user/me");
-      setUser(res.data.user);
+      const userId = localStorage.getItem("userId");
+      if (!userId) throw new Error("Unauthorized");
+
+      const res = await axios.get("/api/user/me", {
+        headers: { "x-user-id": userId },
+      });
+
+      const userData = res.data.user;
+      setUser(userData);
+
       setStats({
-        referred: res.data.referredCount,
-        bought: res.data.purchasedCount,
+        referred: res.data.referredCount || 0,
+        bought: res.data.purchasedCount || 0,
         referralUsers: res.data.referralUsers || [],
       });
     } catch (err) {
       console.error(err);
-      router.push("/auth/login"); // redirect if not logged in
+      localStorage.removeItem("userId"); // clear invalid user
+      router.push("/auth/login");
     }
   };
 
-  // ✅ useEffect fix: stable dependency
   useEffect(() => {
     fetchDashboard();
-    const interval = setInterval(fetchDashboard, 10000); // refresh every 10 sec
+    const interval = setInterval(fetchDashboard, 10000); // refresh every 10s
     return () => clearInterval(interval);
-  }, []); // run once on mount
+  }, []);
 
   const handlePurchase = async () => {
-    if (!user) return;
     try {
-      const res = await axios.post("/api/purchase", { amount: 10 });
-      if (res.data.ok) {
-        // Only update local credits if first purchase was credited
-        if (res.data.purchase.isFirstPurchase) {
-          updateCredits(2);
+      const res = await axios.post(
+        "/api/purchase",
+        { amount: 10 },
+        {
+          headers: {
+            "x-user-id": user._id, // send ID as header
+          },
         }
-        // setStats((prev) => ({
-        //   ...prev,
-        //   bought: prev.bought + 1,
-        // }));
-        await fetchDashboard(); // refresh stats from server
-        alert("Purchase simulated!");
+      );
+
+      // ✅ Optimistically update bought count immediately
+      setStats((prev) => ({
+        ...prev,
+        bought: prev.bought + 1,
+      }));
+
+      // ✅ Update credits if first purchase bonus applied
+      if (res.data.purchase?.isFirstPurchase) {
+        updateCredits(2); // add credits to store immediately
       }
-    } catch (err) {
-      console.error(err);
-      alert("Purchase failed");
+
+      alert(res.data.message);
+    } catch (err: any) {
+      console.error("Purchase error:", err);
+      alert(err.response?.data?.error || "Purchase failed");
     }
   };
 
-  if (!user) return null; // or a loader
+  const handleLogout = () => {
+    localStorage.removeItem("userId");
+    router.push("/auth/login");
+  };
+
+  if (!user) return <div className="text-center mt-10">Loading...</div>;
 
   return (
     <main className="min-h-screen bg-gray-50">
+      {/* Header */}
       <header className="flex justify-between items-center p-6 bg-white shadow">
         <h1 className="text-xl font-bold">Dashboard</h1>
         <div className="flex items-center gap-4">
           <div className="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold cursor-pointer">
-            {user.name[0].toUpperCase()}
+            {user.name[0]?.toUpperCase()}
           </div>
           <button
-            onClick={() => signOut({ callbackUrl: "/" })}
+            onClick={handleLogout}
             className="px-4 py-2 bg-red-500 text-white rounded"
           >
             Logout
@@ -86,14 +112,17 @@ export default function Dashboard() {
         </div>
       </header>
 
+      {/* Stats & Referral */}
       <section className="max-w-4xl mx-auto mt-10 p-6 bg-white rounded-lg shadow">
         <h2 className="text-lg font-semibold mb-4">Welcome, {user.name}</h2>
+
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
           <StatCard label="Referred Users" value={stats.referred} />
           <StatCard label="Bought" value={stats.bought} />
-          <StatCard label="Credits" value={user.credits} />
+          <StatCard label="Credits" value={user.credits || 0} />
         </div>
 
+        {/* Referral Link */}
         <div className="mb-6">
           <h4 className="text-sm text-gray-600 mb-2">Your referral link</h4>
           <div className="flex gap-2">
@@ -115,6 +144,7 @@ export default function Dashboard() {
           </div>
         </div>
 
+        {/* Purchase button */}
         <button
           onClick={handlePurchase}
           className="px-6 py-3 bg-orange-500 text-white rounded"
@@ -122,16 +152,16 @@ export default function Dashboard() {
           Simulate Purchase
         </button>
 
-        {/* ✅ Referral Users Section */}
+        {/* Referral Users */}
         <section className="mt-10 p-6 bg-white rounded-lg shadow">
           <h3 className="text-lg font-semibold mb-4 text-center">
             Referral Users
           </h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-            {stats.referralUsers && stats.referralUsers.length > 0 ? (
+            {stats.referralUsers.length > 0 ? (
               stats.referralUsers.map((ref) => (
                 <div
-                  key={ref.id}
+                  key={ref._id}
                   className="p-4 bg-gray-100 rounded flex flex-col items-center"
                 >
                   <div className="text-lg font-bold">{ref.name}</div>

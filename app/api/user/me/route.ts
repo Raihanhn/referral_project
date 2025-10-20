@@ -1,40 +1,66 @@
 import connect from "@/lib/mongodb";
 import User from "@/models/User";
-import Referral from "@/models/Referral";
 import Purchase from "@/models/Purchase";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/authOptions";
+import Referral from "@/models/Referral";
 import { NextResponse } from "next/server";
+
+interface ReferralUser {
+  _id: string;
+  name: string;
+  purchased: boolean;
+}
+
+// Define type for populated referral
+interface PopulatedReferral {
+  referredId: {
+    _id: string;
+    name: string;
+    credits?: number;
+  } | null;
+}
 
 export async function GET(req: Request) {
   await connect();
 
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.id) {
+  const userId = req.headers.get("x-user-id");
+  if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const user = await User.findById(session.user.id);
-  if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
+  const user = await User.findById(userId).lean();
+  if (!user) {
+    return NextResponse.json({ error: "User not found" }, { status: 404 });
+  }
 
-  // Count of users referred by this user
-  const referredCount = await Referral.countDocuments({ referrerId: user._id });
+  // 1️⃣ Find all users this user referred
+  const referrals = (await Referral.find({ referrerId: user._id }).populate(
+    "referredId",
+    "name credits"
+  )) as PopulatedReferral[]; // cast to proper type
 
-  // Count of purchases by this user (bought)
+  const referredCount = referrals.length;
+
+  // 2️⃣ Count this user's own purchases
   const purchasedCount = await Purchase.countDocuments({ userId: user._id });
 
-  // Fetch all referred users for dashboard
-  const referrals = await Referral.find({ referrerId: user._id }).populate(
-    "referredId",
-    "name email credits"
-  );
+  // 3️⃣ Map referred users for frontend
+  const referralUsers: ReferralUser[] = referrals
+    .map((r) => {
+      const refUser = r.referredId;
+      if (!refUser?._id) return null; // type guard
 
-  // Map for dashboard display
-  const referralUsers = referrals.map((r) => ({
-    id: (r.referredId as any)._id.toString(),
-    name: (r.referredId as any).name,
-    purchased: (r.referredId as any).credits > 0, // check if referred user has credits
-  }));
+      return {
+        _id: refUser._id.toString(),
+        name: refUser.name,
+        purchased: (refUser.credits || 0) > 0, // true if first purchase credited
+      };
+    })
+    .filter((u): u is ReferralUser => u !== null); // type guard
 
-  return NextResponse.json({ user, referredCount, purchasedCount, referralUsers });
+  return NextResponse.json({
+    user,
+    referredCount,
+    purchasedCount, // only this user's own purchases
+    referralUsers,  // referred users with purchased status
+  });
 }

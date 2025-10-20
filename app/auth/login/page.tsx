@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import axios from "axios";
 
 export default function LoginPage() {
   const [form, setForm] = useState({ email: "", password: "" });
@@ -10,8 +10,9 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) =>
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setForm({ ...form, [e.target.name]: e.target.value });
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -19,41 +20,38 @@ export default function LoginPage() {
     setError(null);
 
     try {
-      const res = await signIn("credentials", {
-        redirect: false,
-        email: form.email,
-        password: form.password,
-      });
+      const res = await axios.post("/api/auth/login", form);
 
-      if (res?.error) {
-        setError(res.error || "Invalid credentials");
-      } else {
-        // Redirect to dashboard after successful login
-        router.push("/dashboard");
+      if (res.data.error) {
+        setError(res.data.error);
+        setLoading(false);
+        return;
       }
-    } catch (err) {
+
+      // Save userId in localStorage
+      if (res.data.user && res.data.user._id) {
+        localStorage.setItem("userId", res.data.user._id);
+        localStorage.setItem("userName", res.data.user.name); // optional
+      }
+
+      router.push("/dashboard");
+    } catch (err: any) {
       console.error(err);
-      setError("Login failed. Please try again.");
+      setError(err.response?.data?.error || "Login failed");
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleGoogleLogin = async () => {
-    await signIn("google", { callbackUrl: "/dashboard" });
   };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-500 to-purple-600">
       <div className="bg-white p-8 rounded-2xl shadow-lg w-full max-w-md">
         <h1 className="text-2xl font-bold mb-4 text-center text-gray-800">
-          Welcome Back
+          Login
         </h1>
 
         {error && (
-          <div className="mb-4 text-red-500 text-center font-medium">
-            {error}
-          </div>
+          <div className="mb-4 text-red-500 text-center font-medium">{error}</div>
         )}
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
@@ -80,44 +78,9 @@ export default function LoginPage() {
             disabled={loading}
             className="bg-blue-500 text-white rounded-lg py-2 hover:bg-blue-600 transition-all duration-300 disabled:opacity-60"
           >
-            {loading ? "Signing in..." : "Login"}
+            {loading ? "Logging in..." : "Login"}
           </button>
         </form>
-
-        <div className="mt-6 text-center">
-          <button
-            onClick={handleGoogleLogin}
-            className="flex items-center justify-center w-full gap-2 bg-red-500 text-white py-2 rounded-lg hover:bg-red-600 transition-all"
-          >
-            <svg
-              version="1.1"
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 48 48"
-              className="w-5 h-5"
-            >
-              <g>
-                <path
-                  fill="#EA4335"
-                  d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"
-                />
-                <path
-                  fill="#4285F4"
-                  d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"
-                />
-                <path
-                  fill="#FBBC05"
-                  d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"
-                />
-                <path
-                  fill="#34A853"
-                  d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"
-                />
-                <path fill="none" d="M0 0h48v48H0z" />
-              </g>
-            </svg>
-            Continue with Google
-          </button>
-        </div>
       </div>
     </div>
   );

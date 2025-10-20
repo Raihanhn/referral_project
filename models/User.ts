@@ -1,12 +1,13 @@
-import mongoose, { Schema } from "mongoose";
+import mongoose, { Schema, Document } from "mongoose";
 
-export interface IUser {
+export interface IUser extends Document {
   name: string;
   email: string;
   passwordHash: string;
   referralCode: string;
-  referredBy?: mongoose.Schema.Types.ObjectId | null;
   credits: number;
+  referredBy?: mongoose.Types.ObjectId | null;
+  totalPurchases?: number; // ✅ add this
   createdAt?: Date;
 }
 
@@ -15,10 +16,10 @@ const UserSchema = new Schema<IUser>({
   email: { type: String, required: true, unique: true },
   passwordHash: { type: String, required: true },
   referralCode: { type: String, required: true, unique: true },
-  referredBy: { type: Schema.Types.ObjectId, ref: "User", default: null },
   credits: { type: Number, default: 0 },
-  createdAt: { type: Date, default: Date.now }
+  referredBy: { type: Schema.Types.ObjectId, ref: "User", default: null },
+  totalPurchases: { type: Number, default: 0 }, // ✅ new field
+  createdAt: { type: Date, default: Date.now },
 });
 
-export default (mongoose.models.User as mongoose.Model<IUser>) ||
-  mongoose.model<IUser>("User", UserSchema);
+export default mongoose.models.User || mongoose.model<IUser>("User", UserSchema);
