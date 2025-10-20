@@ -64,10 +64,11 @@ export async function POST(req: Request) {
         totalPurchases: user.totalPurchases,
       },
     });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error("Purchase API error:", err);
+    const message = err instanceof Error ? err.message : "Internal server error";
     return NextResponse.json(
-      { error: "Internal server error", details: err.message },
+      { error: message },
       { status: 500 }
     );
   }

@@ -72,10 +72,11 @@ const newUser = await User.create({
       { message: "User created", user: newUser },
       { status: 201 }
     );
-  } catch (err: any) {
+  }  catch (err: unknown) {
     console.error("Registration error:", err);
+    const message = err instanceof Error ? err.message : "Registration failed";
     return NextResponse.json(
-      { error: err.message || "Registration failed" },
+      { error: message },
       { status: 500 }
     );
   }
