@@ -1,3 +1,7 @@
+### Referral System Diagram
+
+![Referral System Diagram](/referral-diagram.png)
+
 
 # Referral System Overview
 
@@ -24,14 +28,6 @@ This project is built with **Next.js**, **Tailwind CSS**, and **MongoDB** and fe
 - Further purchases increase **Bought** but do not add credits.  
 
 ---
-
-### Referral System Diagram
-
-![Referral System Diagram](/referral-diagram.png)
-
-
-
-
 
 
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
